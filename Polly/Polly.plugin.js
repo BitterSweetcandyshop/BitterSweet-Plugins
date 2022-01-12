@@ -1,5 +1,9 @@
 /**
  * @name Polly
+ * @invite undefined
+ * @authorLink undefined
+ * @donate undefined
+ * @patreon undefined
  * @website https://github.com/B1tterSw33t/BitterSweet-Plugins
  * @source https://github.com/B1tterSw33t/BitterSweet-Plugins/raw/main/Polly/Polly.plugin.js
  */
@@ -125,7 +129,7 @@ module.exports = (() => {
 
 		buildOptionsMenu(content) {
 			let menu = []
-			let links = content.match(/https?:\/\/(www\.)?(youtube|deezer|tidal|soundcloud|qobuz)\.(com|be)\S+/mgi)
+			let links = content.match(/https?:\/\/((www|listen|play)\.)?(youtube|deezer|tidal|soundcloud|qobuz)\.(com|be)\S+/mgi)
 			// you see, I only regexed sites streamrip supports,
 			// to avoid making an api call that would be very slow
 			// since I am clearly very smart
@@ -149,7 +153,7 @@ module.exports = (() => {
 					case "tidal":
 						if (this.settings.tidalAllowed) {
 							menu.push(DiscordContextMenu.buildMenuItem({
-								label: "Tidal",
+								label: "Tidal (streamrip)",
 								type: "text",
 								action: () => this.Downloader.streamrip(link)
 							}))
@@ -158,7 +162,7 @@ module.exports = (() => {
 					case "deezer":
 						if (this.settings.deezerAllowed) {
 							menu.push(DiscordContextMenu.buildMenuItem({
-								label: "Deezer",
+								label: "Deezer (streamrip)",
 								type: "text",
 								action: () => this.Downloader.streamrip(link)
 							}))
@@ -166,7 +170,7 @@ module.exports = (() => {
 						break
 					case "soundcloud":
 						menu.push(DiscordContextMenu.buildMenuItem({
-							label: "Soundcloud",
+							label: "Soundcloud (streamrip)",
 							type: "text",
 							action: () => this.Downloader.streamrip(link)
 						}))
@@ -174,7 +178,7 @@ module.exports = (() => {
 					case "qobuz":
 						if (this.settings.qobuzAllowed) {
 							menu.push(DiscordContextMenu.buildMenuItem({
-								label: "Qobuz",
+								label: "Qobuz (streamrip)",
 								type: "text",
 								action: () => this.Downloader.streamrip(link)
 							}))
