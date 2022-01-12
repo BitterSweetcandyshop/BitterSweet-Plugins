@@ -1,11 +1,7 @@
 /**
  * @name Polly
- * @invite undefined
- * @authorLink undefined
- * @donate undefined
- * @patreon undefined
- * @website 
- * @source 
+ * @website https://github.com/B1tterSw33t/BitterSweet-Plugins
+ * @source https://github.com/B1tterSw33t/BitterSweet-Plugins/raw/main/Polly/Polly.plugin.js
  */
 /*@cc_on
 @if (@_jscript)
@@ -32,7 +28,7 @@
 @else@*/
 
 module.exports = (() => {
-    const config = {"info":{"name":"Polly","authors":[{"name":"BitterSweet","discord_id":"927695547421310996","github_username":"B1tterSw33t"}],"invite":"swK8nFAV29","version":"1.0.0","description":"Polly is a piracy plugin made to run piracy cli commands in discord like streamrip and youtube-dl","github":"","github_raw":""},"changelog":[{"title":"Firt Release","items":["Just an example update"]}],"main":"index.js"};
+    const config = {"info":{"name":"Polly","authors":[{"name":"BitterSweet","discord_id":"927695547421310996","github_username":"B1tterSw33t"}],"invite":"swK8nFAV29","version":"1.2.0","description":"Polly is a piracy plugin made to run piracy cli commands in discord like streamrip and youtube-dl","github":"https://github.com/B1tterSw33t/BitterSweet-Plugins","github_raw":"https://github.com/B1tterSw33t/BitterSweet-Plugins/raw/main/Polly/Polly.plugin.js"},"changelog":[{"title":"Welcome here's what I can do!","items":["Download youtube videos","Download music"]},{"title":"CHECK YOUR SETTINGS","items":["Make sure the paths are currect, defualt is linux based!","Make sure you have the right cli selected!","Choose the media codec(s) you want"]}],"main":"index.js"};
 
     return !global.ZeresPluginLibrary ? class {
         constructor() {this._config = config;}
@@ -61,42 +57,133 @@ module.exports = (() => {
 
 	return class Polly extends Plugin {
 
-		// Settings
+		// Default Settings
 		constructor() {
 			super()
 			this.defaultSettings = {}
-			this.defaultSettings.path = "~/documents/youtube/%(channel)s/%(title)s.%(ext)s"
+			// logins
+			this.defaultSettings.deezerAllowed = false
+			this.defaultSettings.tidalAllowed = false
+			this.defaultSettings.qobuzAllowed = false
+			// Extras
+			this.defaultSettings.musicHoardingAllowed = false
+			// paths
+			this.defaultSettings.ytdlPath = "~/documents/youtube/%(channel)s/%(title)s.%(ext)s"
+			// codecls 
+			this.defaultSettings.ytdlCodec = "mp4"
 		}
 
 		// Downloader object to manage download methods
 		Downloader = {
-			youtube: (url) => {
+			handleChild: (command, args) => {
 				try {
-					let ytdlProcess =spawn("youtube-dl", ["-o", this.settings.path, url])
-					Toasts.show("Started Download", {
-						type: "success",
-						timeout: 3000
+					let childProcess = spawn(command, args)
+					let failed = false
+					this.ToasterBath.success("Started Download")
+					childProcess.stderr.on("data", (data) => {
+						console.log(data)
+						this.ToasterBath.error("Failed Download " + data)
+						failed = true
 					})
-					ytdlProcess.stderr.on("data", (data) => {
-						console.error(data)
-						Toasts.show("Failed Download " + e, {
-							type: "error",
-							timeout: 3000
-						})
-					})
-					ytdlProcess.on("close", () => {
-						Toasts.show("Finished Download", {
-							type: "success",
-							timeout: 3000
-						})
+					childProcess.on("close", () => {
+						if (!failed) this.ToasterBath.success("Download Completed")
 					})
 				} catch (e) {
-					Toasts.show("Failed Download " + e, {
-						type: "error",
-						timeout: 3000
-					})
+					this.ToasterBath.error("Failed Download")
+				}
+			},
+			youtube: (url) => {
+				this.Downloader.handleChild("youtube-dl", ["-o", this.settings.ytdlPath, "-f", this.settings.ytdlCodec, url])
+			},
+			streamrip: (url) => {
+				this.Downloader.handleChild("rip", ["url", url])
+			},
+			deemix: (url) => {
+				this.Downloader.handleChild("python3", ["-m", "deemix", "-p", this.settings.audioPath, url])
+			},
+			youtubeAudio: (url) => {
+				this.Downloader.handleChild("youtube-dl", ["-o", this.settings.audioPath, "--extact-audio", "--audio-format", 'best', url])
+			},
+		}
+
+		// I just got tired of typing the full
+		// thing everytime so I'm taking a toaster bath
+		ToasterBath = {
+			success: (text) => {
+				Toasts.show(text, {
+					type: "success",
+					timeout: 3000
+				})
+			},
+			error: (text) => {
+				Toasts.show(text, {
+					type: "error",
+					timeout: 3000
+				})
+			}
+		}
+
+		buildOptionsMenu(content) {
+			let menu = []
+			let links = content.match(/https?:\/\/(www\.)?(youtube|deezer|tidal|soundcloud|qobuz)\.(com|be)\S+/mgi)
+			// you see, I only regexed sites streamrip supports,
+			// to avoid making an api call that would be very slow
+			// since I am clearly very smart
+			if (!links.length) return false
+			for (let link of links) {
+				let site = link.match(/youtube|tidal|qobuz|soundcloud|deezer/im)[0]
+				console.log(`"${site}"`)
+				switch (site) {
+					case "youtube":
+						menu.push(DiscordContextMenu.buildMenuItem({
+							label: "Youtube (streamrip)",
+							type: "text",
+							action: () => this.Downloader.streamrip(link)
+						}))
+						menu.push(DiscordContextMenu.buildMenuItem({
+							label: "Youtube (youtube-dl)",
+							type: "text",
+							action: () => this.Downloader.youtube(link)
+						}))
+						break
+					case "tidal":
+						if (this.settings.tidalAllowed) {
+							menu.push(DiscordContextMenu.buildMenuItem({
+								label: "Tidal",
+								type: "text",
+								action: () => this.Downloader.streamrip(link)
+							}))
+						}
+						break
+					case "deezer":
+						if (this.settings.deezerAllowed) {
+							menu.push(DiscordContextMenu.buildMenuItem({
+								label: "Deezer",
+								type: "text",
+								action: () => this.Downloader.streamrip(link)
+							}))
+						}
+						break
+					case "soundcloud":
+						menu.push(DiscordContextMenu.buildMenuItem({
+							label: "Soundcloud",
+							type: "text",
+							action: () => this.Downloader.streamrip(link)
+						}))
+						break
+					case "qobuz":
+						if (this.settings.qobuzAllowed) {
+							menu.push(DiscordContextMenu.buildMenuItem({
+								label: "Qobuz",
+								type: "text",
+								action: () => this.Downloader.streamrip(link)
+							}))
+						}
+						break
 				}
 			}
+			if (!menu.length) return false
+			return menu
 		}
 
 		async onStart() {
@@ -106,16 +193,14 @@ module.exports = (() => {
 			// Credit: The Commie Axolotl#6898
 			Patcher.after(MessageContextMenu, "default", (_, [props], component) => {
 				let message = props.message
-				let link = message.content.match(/https?:\/\/(www\.)?youtube\.com\S+/i)
-				if (!link) return
+				let submenu = this.buildOptionsMenu(message.content)
+				console.log(submenu)
+				if (!submenu) return
 				component.props.children.push(DiscordContextMenu.buildMenuItem({
 					label: "Polly",
-					type: "text",
-					action: () => {
-						this.Downloader.youtube(link)
-					}
+					type: "submenu",
+					children: submenu
 				}))
-
 			})	
 		}
 
@@ -125,14 +210,38 @@ module.exports = (() => {
 
 		getSettingsPanel() {
 			return Settings.SettingPanel.build(this.saveSettings.bind(this),
-				new Settings.Textbox(
-					"Youtube-DL Path",
-					"Folder path to download media, supports youtube-dl scripting.",
-					this.settings.path,
-					(e) => {
-						this.settings.path = e
-					}
+				new Settings.SettingGroup("Youtube-DL").append(
+					new Settings.Textbox(
+						"Youtube-DL Path",
+						"youtube-dl scripting, case sensitive.",
+						this.settings.ytdlPath,
+						(e) => {
+							this.settings.ytdlPath = e
+						}
+					),
+					new Settings.RadioGroup(
+						"Audio Codec",
+						"Usually the CLIs use ffmpeg, also will download best quality of choosen codec.",
+						this.settings.ytdlCodec,
+						[
+							{name: "Best", value: "best", desc: "Uses best available option", color: "#ffffff"},
+							{name: "Worst", value: "worst", desc: "Uses worst availble option", color: "#ffffff"},
+							{name: "MP4", value: "mp4", desc: "", color: "#ffffff"},
+							{name: "FLV", value: "flv", desc: "", color: "#ffffff"}
+
+						],
+						(e) => {
+							this.settings.ytdlCodec = e
+						}
+					)
 				),
+				// Music Downloader
+				new Settings.SettingGroup("Streamrip").append(
+					new Settings.Switch("Deezer Login", "", this.settings.deezerAllowed, (e) => {this.settings.deezerAllowed = e;}),
+					new Settings.Switch("Tidal Login", "", this.settings.tidalAllowed, (e) => {this.settings.tidalAllowed = e;}),
+					new Settings.Switch("Qobuz Login", "", this.settings.deezerAllowed, (e) => {this.settings.qobuzAllowed = e;}),
+					new Settings.Switch("Music Hoarder Mode", "Find and download entire artist always from album/track link", this.settings.musicHoardingAllowed, (e) => {this.settings.musicHoardingAllowed = e;}, {disabled: true}),
+				)
 			)
 		}
 	}
